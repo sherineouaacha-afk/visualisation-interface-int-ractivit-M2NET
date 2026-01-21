@@ -1,0 +1,228 @@
+
+
+import React, { useState, useEffect } from 'react';
+import { BarChart, Bar, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart3, Sparkles } from 'lucide-react';
+import Papa from 'papaparse';
+
+const TechWomenVisualization = () => {
+  const [data, setData] = useState([]);
+  const [chartType, setChartType] = useState('bar');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const colors = [
+    '#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6',
+    '#EF4444', '#6366F1', '#14B8A6', '#F97316', '#A855F7'
+  ];
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQMAClOQ51CmQS_TnNpsHVLLU4E_9YR2k5DqEt0gyiLb9fHC2ZZ5_x_21SEDA7LD9qIyg19RzamyXBi/pub?gid=861363179&single=true&output=csv';
+        
+        const response = await fetch(csvUrl);
+        const csvText = await response.text();
+        
+        Papa.parse(csvText, {
+          header: true,
+          dynamicTyping: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+            const processedData = results.data
+              .map(row => {
+                const company = row.company || row.Company || row.COMPANY || '';
+                const numFemales = parseFloat(row.numfemales || row.numFemales || row.num_females || row['Number of Females'] || 0);
+                
+                return {
+                  company: company.trim(),
+                  numFemales: numFemales,
+                  displayName: company.length > 20 ? company.substring(0, 18) + '...' : company
+                };
+              })
+              .filter(item => item.company && item.numFemales > 0)
+              .sort((a, b) => b.numFemales - a.numFemales)
+              .slice(0, 10)
+              .map((item, index) => ({
+                ...item,
+                rank: index + 1,
+                color: colors[index]
+              }));
+            
+            setData(processedData);
+            setLoading(false);
+          },
+          error: (error) => {
+            setError('Erreur lors du chargement des données');
+            setLoading(false);
+          }
+        });
+      } catch (err) {
+        setError('Erreur de connexion');
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const CustomTooltip = ({ active, payload }) => {
+    if (active && payload && payload[0]) {
+      return (
+        <div className="bg-white p-4 rounded-lg shadow-lg border-2 border-purple-200">
+          <p className="font-bold text-gray-800">{payload[0].payload.company}</p>
+          <p className="text-purple-600 font-semibold">
+            Femmes employées: {payload[0].value.toLocaleString()}
+          </p>
+          <p className="text-sm text-gray-500">Rang #{payload[0].payload.rank}</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-purple-50 to-pink-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 font-medium">Chargement des données...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-purple-50 to-pink-50">
+        <div className="bg-red-100 border-2 border-red-400 text-red-700 px-6 py-4 rounded-lg">
+          {error}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 p-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-800 mb-2">
+            Top 10 des Compagnies Tech
+          </h1>
+          <p className="text-xl text-gray-600">
+            Nombre de femmes employées
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-2xl p-8 mb-6">
+          <div className="flex justify-center gap-4 mb-8">
+            <button
+              onClick={() => setChartType('bar')}
+              className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all transform hover:scale-105 ${
+                chartType === 'bar'
+                  ? 'bg-purple-600 text-white shadow-lg'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              <BarChart3 size={20} />
+              Graphique en barres
+            </button>
+            <button
+              onClick={() => setChartType('scatter')}
+              className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all transform hover:scale-105 ${
+                chartType === 'scatter'
+                  ? 'bg-pink-600 text-white shadow-lg'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              <Sparkles size={20} />
+              Nuage de points
+            </button>
+          </div>
+
+          <ResponsiveContainer width="100%" height={500}>
+            {chartType === 'bar' ? (
+              <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 100 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis 
+                  dataKey="displayName" 
+                  angle={-45} 
+                  textAnchor="end" 
+                  height={120}
+                  tick={{ fill: '#374151', fontSize: 12 }}
+                />
+                <YAxis tick={{ fill: '#374151' }} />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar 
+                  dataKey="numFemales" 
+                  radius={[8, 8, 0, 0]}
+                  animationDuration={1500}
+                  animationBegin={0}
+                >
+                  {data.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            ) : (
+              <ScatterChart margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis 
+                  type="number" 
+                  dataKey="rank" 
+                  name="Rang"
+                  domain={[0, 11]}
+                  tick={{ fill: '#374151' }}
+                  label={{ value: 'Rang', position: 'insideBottom', offset: -10, fill: '#374151' }}
+                />
+                <YAxis 
+                  type="number" 
+                  dataKey="numFemales" 
+                  name="Nombre de femmes"
+                  tick={{ fill: '#374151' }}
+                  label={{ value: 'Nombre de femmes', angle: -90, position: 'insideLeft', fill: '#374151' }}
+                />
+                <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3' }} />
+                <Scatter 
+                  data={data} 
+                  animationDuration={1500}
+                  animationBegin={0}
+                >
+                  {data.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Scatter>
+              </ScatterChart>
+            )}
+          </ResponsiveContainer>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {data.map((company, index) => (
+            <div
+              key={index}
+              className="bg-white rounded-lg p-4 shadow-md hover:shadow-xl transition-shadow"
+              style={{ borderTop: `4px solid ${company.color}` }}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-2xl font-bold" style={{ color: company.color }}>
+                  #{company.rank}
+                </span>
+              </div>
+              <h3 className="font-semibold text-gray-800 text-sm mb-2 truncate" title={company.company}>
+                {company.company}
+              </h3>
+              <p className="text-lg font-bold text-purple-600">
+                {company.numFemales.toLocaleString()}
+              </p>
+              <p className="text-xs text-gray-500">femmes employées</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default TechWomenVisualization;
+
