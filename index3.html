@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Femmes en Ingénierie Logicielle</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .stats-overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+            margin: 10px 0;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.95em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .controls {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .control-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            align-items: end;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-weight: 600;
+        }
+
+        button:hover {
+            background: #5568d3;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .chart-title {
+            font-size: 1.3em;
+            color: #333;
+            margin-bottom: 20px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .table-container {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+
+        tr:hover {
+            background: #f5f5f5;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: white;
+            font-size: 1.5em;
+        }
+
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Femmes en Ingénierie Logicielle</h1>
+            <p class="subtitle">Analyse des données de diversité dans les équipes tech</p>
+        </header>
+
+        <div class="stats-overview" id="statsOverview">
+            <div class="stat-card">
+                <div class="stat-label">Entreprises</div>
+                <div class="stat-number" id="totalCompanies">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Ingénieurs Total</div>
+                <div class="stat-number" id="totalEngineers">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Femmes Ingénieurs</div>
+                <div class="stat-number" id="totalFemale">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">% Moyen Femmes</div>
+                <div class="stat-number" id="avgPercent">-</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <div>
+                    <label for="companyFilter">Filtrer par entreprise:</label>
+                    <select id="companyFilter">
+                        <option value="">Toutes les entreprises</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="teamFilter">Filtrer par équipe:</label>
+                    <select id="teamFilter">
+                        <option value="">Toutes les équipes</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="minPercent">% minimum femmes:</label>
+                    <input type="number" id="minPercent" min="0" max="100" step="1" placeholder="0">
+                </div>
+                <div>
+                    <button onclick="applyFilters()"> Appliquer les filtres</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="charts-grid">
+            <div class="chart-container">
+                <h3 class="chart-title">Distribution par Entreprise</h3>
+                <canvas id="companyChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3 class="chart-title">Pourcentage Moyen par Entreprise</h3>
+                <canvas id="percentChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3 class="chart-title">Répartition Hommes/Femmes</h3>
+                <canvas id="pieChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3 class="chart-title">Distribution des Pourcentages</h3>
+                <canvas id="histogramChart"></canvas>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <h3 class="chart-title">Données Détaillées</h3>
+            <table id="dataTable">
+                <thead>
+                    <tr>
+                        <th>Entreprise</th>
+                        <th>Équipe</th>
+                        <th>Femmes Ing.</th>
+                        <th>Total Ing.</th>
+                        <th>% Femmes</th>
+                        <th>Dernière MAJ</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let allData = [];
+        let filteredData = [];
+        let charts = {};
+
+        async function loadData() {
+            try {
+                const fileData = await window.fs.readFile('women_in_software_engineering_stats.csv', { encoding: 'utf8' });
+                
+                Papa.parse(fileData, {
+                    header: true,
+                    dynamicTyping: true,
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        allData = results.data;
+                        filteredData = allData;
+                        initializeApp();
+                    }
+                });
+            } catch (error) {
+                console.error('Erreur lors du chargement:', error);
+                document.querySelector('.container').innerHTML = 
+                    '<div class="loading">Erreur: Impossible de charger les données</div>';
+            }
+        }
+
+        function initializeApp() {
+            populateFilters();
+            updateStats();
+            createCharts();
+            updateTable();
+        }
+
+        function populateFilters() {
+            const companies = [...new Set(allData.map(d => d.company))].sort();
+            const teams = [...new Set(allData.map(d => d.team))].filter(t => t).sort();
+            
+            const companySelect = document.getElementById('companyFilter');
+            companies.forEach(company => {
+                const option = document.createElement('option');
+                option.value = company;
+                option.textContent = company;
+                companySelect.appendChild(option);
+            });
+
+            const teamSelect = document.getElementById('teamFilter');
+            teams.forEach(team => {
+                const option = document.createElement('option');
+                option.value = team;
+                option.textContent = team;
+                teamSelect.appendChild(option);
+            });
+        }
+
+        function applyFilters() {
+            const company = document.getElementById('companyFilter').value;
+            const team = document.getElementById('teamFilter').value;
+            const minPercent = parseFloat(document.getElementById('minPercent').value) || 0;
+
+            filteredData = allData.filter(d => {
+                if (company && d.company !== company) return false;
+                if (team && d.team !== team) return false;
+                if (d.percent_female_eng < minPercent) return false;
+                return true;
+            });
+
+            updateStats();
+            updateCharts();
+            updateTable();
+        }
+
+        function updateStats() {
+            const companies = new Set(filteredData.map(d => d.company)).size;
+            const totalEng = filteredData.reduce((sum, d) => sum + (d.num_eng || 0), 0);
+            const totalFemale = filteredData.reduce((sum, d) => sum + (d.num_female_eng || 0), 0);
+            const avgPercent = totalEng > 0 ? ((totalFemale / totalEng) * 100).toFixed(1) : 0;
+
+            document.getElementById('totalCompanies').textContent = companies;
+            document.getElementById('totalEngineers').textContent = totalEng.toLocaleString();
+            document.getElementById('totalFemale').textContent = totalFemale.toLocaleString();
+            document.getElementById('avgPercent').textContent = avgPercent + '%';
+        }
+
+        function createCharts() {
+            createCompanyChart();
+            createPercentChart();
+            createPieChart();
+            createHistogramChart();
+        }
+
+        function updateCharts() {
+            Object.values(charts).forEach(chart => chart.destroy());
+            createCharts();
+        }
+
+        function createCompanyChart() {
+            const companyData = {};
+            filteredData.forEach(d => {
+                if (!companyData[d.company]) {
+                    companyData[d.company] = { female: 0, total: 0 };
+                }
+                companyData[d.company].female += d.num_female_eng || 0;
+                companyData[d.company].total += d.num_eng || 0;
+            });
+
+            const companies = Object.keys(companyData).slice(0, 15);
+            const femaleData = companies.map(c => companyData[c].female);
+            const maleData = companies.map(c => companyData[c].total - companyData[c].female);
+
+            const ctx = document.getElementById('companyChart').getContext('2d');
+            charts.company = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: companies,
+                    datasets: [{
+                        label: 'Femmes',
+                        data: femaleData,
+                        backgroundColor: '#f093fb'
+                    }, {
+                        label: 'Hommes',
+                        data: maleData,
+                        backgroundColor: '#667eea'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: { stacked: true },
+                        y: { stacked: true, beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        function createPercentChart() {
+            const companyData = {};
+            filteredData.forEach(d => {
+                if (!companyData[d.company]) {
+                    companyData[d.company] = { female: 0, total: 0 };
+                }
+                companyData[d.company].female += d.num_female_eng || 0;
+                companyData[d.company].total += d.num_eng || 0;
+            });
+
+            const companies = Object.keys(companyData).slice(0, 15);
+            const percentData = companies.map(c => 
+                companyData[c].total > 0 ? (companyData[c].female / companyData[c].total * 100).toFixed(1) : 0
+            );
+
+            const ctx = document.getElementById('percentChart').getContext('2d');
+            charts.percent = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: companies,
+                    datasets: [{
+                        label: '% Femmes',
+                        data: percentData,
+                        backgroundColor: '#f093fb'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true, max: 100 }
+                    }
+                }
+            });
+        }
+
+        function createPieChart() {
+            const totalEng = filteredData.reduce((sum, d) => sum + (d.num_eng || 0), 0);
+            const totalFemale = filteredData.reduce((sum, d) => sum + (d.num_female_eng || 0), 0);
+            const totalMale = totalEng - totalFemale;
+
+            const ctx = document.getElementById('pieChart').getContext('2d');
+            charts.pie = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Femmes', 'Hommes'],
+                    datasets: [{
+                        data: [totalFemale, totalMale],
+                        backgroundColor: ['#f093fb', '#667eea']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        }
+
+        function createHistogramChart() {
+            const ranges = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+            const counts = new Array(ranges.length - 1).fill(0);
+
+            filteredData.forEach(d => {
+                const percent = d.percent_female_eng;
+                for (let i = 0; i < ranges.length - 1; i++) {
+                    if (percent >= ranges[i] && percent < ranges[i + 1]) {
+                        counts[i]++;
+                        break;
+                    }
+                }
+            });
+
+            const labels = ranges.slice(0, -1).map((r, i) => `${r}-${ranges[i + 1]}%`);
+
+            const ctx = document.getElementById('histogramChart').getContext('2d');
+            charts.histogram = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Nombre d\'équipes',
+                        data: counts,
+                        backgroundColor: '#667eea'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        function updateTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            filteredData.slice(0, 100).forEach(d => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${d.company || '-'}</td>
+                    <td>${d.team || '-'}</td>
+                    <td>${d.num_female_eng || 0}</td>
+                    <td>${d.num_eng || 0}</td>
+                    <td>${d.percent_female_eng?.toFixed(1) || 0}%</td>
+                    <td>${d.last_updated || '-'}</td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            if (filteredData.length > 100) {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td colspan="6" style="text-align:center; font-style:italic; color:#666;">
+                    ${filteredData.length - 100} lignes supplémentaires non affichées...
+                </td>`;
+                tbody.appendChild(row);
+            }
+        }
+
+        loadData();
+    </script>
+</body>
+</html>
