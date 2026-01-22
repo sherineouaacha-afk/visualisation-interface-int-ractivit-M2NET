@@ -180,7 +180,7 @@
                         data: currentData.map((d, index) => ({
                             x: index + 1,
                             y: d[COL_NAME_FEMALE_PCT],
-                            r: d[COL_NAME_TOTAL_ENG] ? Math.sqrt(d[COL_NAME_TOTAL_ENG]) / 30 : 35, 
+                            r: d[COL_NAME_TOTAL_ENG] ? Math.sqrt(d[COL_NAME_TOTAL_ENG]) / 10 : 35, 
                             companyName: d[COL_NAME_COMPANY],
                             totalStaff: d[COL_NAME_TOTAL_ENG] || 0
                         })),
@@ -301,4 +301,5 @@
 
 
 </html>
+
 
