@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualisation Interactive : Femmes dans la Tech</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #e6e4e4;
+            color: #333;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            font-family: 'Cambria';
+            margin-bottom: 10px;
+        }
+        
+        h2 {
+            font-family: 'Cambria';
+        }
+        
+        .controls-container {
+            background: #f1eff1;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        label {
+            font-weight: bold;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        select,
+        button {
+            padding: 8px 12px;
+            border: 1px solid #ffffff;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        button {
+            background-color: #6b5bd4;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #5b4bc4;
+        }
+
+        #chart-wrapper {
+            width: 90%;
+            max-width: 1000px;
+            height: 60vh;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        #toggleViewBtn {
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>La part des femmes dans la Tech</h1>
+    <h2>La diversité du genre dans les équipes d'ingénieurs selon les entreprises américaines</h2>
+    <p>Exploration interactive des données</p>
+
+    <div class="controls-container">
+        <div class="control-group">
+            <label for="topNSelect">Filtrer les données :</label>
+            <select id="topNSelect">
+                <option value="10" selected>Top 10 des entreprises</option>
+                <option value="20">Top 20 des entreprises</option>
+                <option value="50">Top 50 des entreprises</option>
+            </select>
+        </div>
+        <div class="control-group" style="justify-content: end;">
+            <button id="toggleViewBtn">Passer en mode Nuage de Points</button>
+        </div>
+    </div>
+
+    <div id="chart-wrapper">
+        <canvas id="myChart"></canvas>
+    </div>
+
+
+    <script>
+        // ================= CONFIGURATION (A MODIFIER SELON VOTRE CSV) =================
+        const CSV_FILE_PATH = 'data.csv';
+        const COL_NAME_COMPANY = 'company';
+        const COL_NAME_FEMALE_PCT = 'percent_female_eng'; 
+        const COL_NAME_TOTAL_ENG = 'num_eng';
+        // ==============================================================================
+
+        // Variables globales
+        let rawData = [];
+        let currentData = [];
+        let myChart = null;
+        let isScatterMode = false;
+
+        // --- ÉTAPE 1 : Chargement des données ---
+        Papa.parse(CSV_FILE_PATH, {
+            download: true,
+            header: true,
+            dynamicTyping: true,
+            skipEmptyLines: true,
+            complete: function (results) {
+                console.log("Données brutes chargées :", results.data);
+                rawData = results.data.filter(row => 
+                    row[COL_NAME_COMPANY] && 
+                    typeof row[COL_NAME_FEMALE_PCT] === 'number'
+                );
+                updateDataAndChart();
+            },
+            error: function (err) { 
+                alert("Erreur de chargement CSV. Vérifiez le chemin ou la console (F12)."); 
+                console.error(err);
+            }
+        });
+
+        // --- ÉTAPE 2 : Gestion des interactions ---
+        document.getElementById('topNSelect').addEventListener('change', updateDataAndChart);
+
+        document.getElementById('toggleViewBtn').addEventListener('click', function () {
+            isScatterMode = !isScatterMode;
+            this.textContent = isScatterMode ? "Revenir aux Barres Empilées" : "Passer en mode Nuage de Points";
+            updateDataAndChart();
+        });
+
+        // --- ÉTAPE 3 : Cœur logique ---
+        function updateDataAndChart() {
+            // A. Récupérer le nombre d'entreprises à afficher
+            const topN = parseInt(document.getElementById('topNSelect').value);
+            
+            // B. Filtrer et trier les données
+            currentData = rawData
+                .sort((a, b) => b[COL_NAME_FEMALE_PCT] - a[COL_NAME_FEMALE_PCT])
+                .slice(0, topN);
+
+            // C. Préparer les labels (noms des entreprises)
+            const labels = currentData.map(d => d[COL_NAME_COMPANY]);
+
+            // D. Configurer les données selon le mode
+            let chartDataConfig;
+            let chartOptionsConfig;
+
+            if (isScatterMode) {
+                // --- MODE BUBBLE CHART ---
+                chartDataConfig = {
+                    datasets: [{
+                        label: '% Femmes',
+                        data: currentData.map((d, index) => ({
+                            x: index + 1,
+                            y: d[COL_NAME_FEMALE_PCT],
+                            r: d[COL_NAME_TOTAL_ENG] ? Math.sqrt(d[COL_NAME_TOTAL_ENG]) / 10 : 35, 
+                            companyName: d[COL_NAME_COMPANY],
+                            totalStaff: d[COL_NAME_TOTAL_ENG] || 0
+                        })),
+                        backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        type: 'bubble'
+                    }]
+                };
+                chartOptionsConfig = getScatterOptions();
+
+            } else {
+                // --- MODE BARRES EMPILÉES ---
+                const womenData = currentData.map(d => d[COL_NAME_FEMALE_PCT]);
+                const menData = currentData.map(d => 100 - d[COL_NAME_FEMALE_PCT]);
+
+                chartDataConfig = {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: '% Femmes',
+                            data: womenData,
+                            backgroundColor: 'rgba(255, 99, 132, 0.7)',
+                            stack: 'stack0',
+                        },
+                        {
+                            label: '% Hommes',
+                            data: menData,
+                            backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                            stack: 'stack0',
+                        }
+                    ]
+                };
+                chartOptionsConfig = getStackedBarOptions();
+            }
+
+            // E. Créer ou mettre à jour le graphique
+            renderChart(chartDataConfig, chartOptionsConfig, isScatterMode ? 'scatter' : 'bar');
+        }
+
+        // Fonction pour dessiner le graphique
+        function renderChart(dataConfig, optionsConfig, type) {
+            const ctx = document.getElementById('myChart').getContext('2d');
+
+            if (myChart) {
+                myChart.options = optionsConfig;
+                myChart.data = dataConfig;
+                myChart.config.type = type;
+                myChart.update({ duration: 800, easing: 'easeInOutQuart' });
+            } else {
+                myChart = new Chart(ctx, {
+                    type: type,
+                    data: dataConfig,
+                    options: optionsConfig
+                });
+            }
+        }
+
+        // --- ÉTAPE 4 : Configurations des options ---
+        function getStackedBarOptions() {
+            return {
+                responsive: true, 
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        stacked: true,
+                        title: { display: true, text: 'Entreprises' }
+                    },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true, 
+                        max: 100,
+                        title: { display: true, text: 'Répartition (%)' }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: { 
+                            label: (c) => `${c.dataset.label}: ${c.raw.toFixed(1)}%` 
+                        }
+                    }
+                }
+            };
+        }
+
+        function getScatterOptions() {
+            return {
+                responsive: true, 
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        type: 'linear',
+                        title: { display: true, text: 'Rang du classement (Top N)' },
+                        ticks: { stepSize: 1 }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'Pourcentage de Femmes (%)' }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const raw = context.raw;
+                                return `${raw.companyName}: ${raw.y}% femmes (Ingénieurs: ${raw.totalStaff})`;
+                            }
+                        }
+                    },
+                    subtitle: {
+                        display: true,
+                        text: 'La taille de la bulle représente le nombre total d\'ingénieurs'
+                    }
+                }
+            };
+        }
+    </script>
+</body>
+
+
+</html>
